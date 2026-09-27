@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android release
 
 on:
   push:
@@ -8,48 +8,80 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: android-release
+  cancel-in-progress: true
+
 jobs:
-  build-apk:
+  build-android:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Validate question bank
+        run: python3 tool/validate_questions.py
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Unit tests
+        run: flutter test
+
       - name: Generate Android project
         run: |
           chmod +x bootstrap_android.sh
           ./bootstrap_android.sh
-      - name: Validate question bank
-        run: python tool/validate_questions.py
-      - name: Flutter analyze
-        run: flutter analyze
-      - name: Flutter tests
-        run: flutter test
-      - name: Build release APK
+
+      - name: Build APK
         run: flutter build apk --release
-      - name: Rename APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk revision-arbitrage.apk
-      - name: Upload APK artifact
+
+      - name: Build Android App Bundle
+        run: flutter build appbundle --release
+
+      - name: Prepare release files
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk revision-arbitrage.apk
+          cp build/app/outputs/bundle/release/app-release.aab revision-arbitrage.aab
+
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: revision-arbitrage-apk
-          path: revision-arbitrage.apk
+          name: revision-arbitrage-android
+          path: |
+            revision-arbitrage.apk
+            revision-arbitrage.aab
           if-no-files-found: error
-      - name: Publish latest APK release
+
+      - name: Publish latest GitHub Release
         uses: ncipollo/release-action@v1
         with:
           tag: latest
-          name: Révision Arbitrage — dernière APK
-          artifacts: revision-arbitrage.apk
+          name: Révision Arbitrage — dernière version
+          artifacts: revision-arbitrage.apk,revision-arbitrage.aab
           allowUpdates: true
           replacesArtifacts: true
           makeLatest: true
+          body: |
+            Version Android générée automatiquement depuis la branche master.
+
+            - `revision-arbitrage.apk` : installation directe sur Android.
+            - `revision-arbitrage.aab` : bundle de préparation pour une publication Google Play. Une clé de signature de production devra être configurée avant publication.
+
+            Aucun compte, aucune publicité et aucune connexion internet obligatoire après installation.
