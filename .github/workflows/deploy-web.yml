@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      pages_enabled: ${{ steps.pages-status.outputs.enabled }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,15 +44,43 @@ jobs:
       - name: Add no-Jekyll marker
         run: touch build/web/.nojekyll
 
+      - name: Upload downloadable web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: revision-arbitrage-web
+          path: build/web
+          if-no-files-found: error
+
+      - name: Check whether GitHub Pages is enabled
+        id: pages-status
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          code="$(curl -sS -o /tmp/pages.json -w "%{http_code}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/pages")"
+          if [ "$code" = "200" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "GitHub Pages n'est pas encore activé pour ce dépôt (HTTP $code)."
+          fi
+
       - name: Configure Pages
+        if: steps.pages-status.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: steps.pages-status.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v4
         with:
           path: build/web
 
   deploy:
+    if: needs.build.outputs.pages_enabled == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
