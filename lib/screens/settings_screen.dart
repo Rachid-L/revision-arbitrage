@@ -82,20 +82,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.delete_outline),
             title: const Text('Réinitialiser les statistiques'),
             onTap: () async {
+              final messenger = ScaffoldMessenger.of(context);
               final ok = await showDialog<bool>(
                 context: context,
-                builder: (context) => AlertDialog(
+                builder: (dialogContext) => AlertDialog(
                   title: const Text('Réinitialiser ?'),
                   content: const Text(
                     'Toutes les tentatives et les erreurs enregistrées seront supprimées.',
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context, false),
+                      onPressed: () => Navigator.pop(dialogContext, false),
                       child: const Text('Annuler'),
                     ),
                     FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
+                      onPressed: () => Navigator.pop(dialogContext, true),
                       child: const Text('Réinitialiser'),
                     ),
                   ],
@@ -103,11 +104,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
               if (ok == true) {
                 await widget.stats.reset();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Statistiques réinitialisées.')),
-                  );
-                }
+                if (!mounted) return;
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Statistiques réinitialisées.')),
+                );
               }
             },
           ),
