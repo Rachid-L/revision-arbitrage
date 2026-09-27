@@ -20,14 +20,15 @@ class ProgressScreen extends StatelessWidget {
     return (attempts, correct);
   }
 
-  String percent((int, int) totals) {
-    if (totals.$1 == 0) return '—';
-    return '${(totals.$2 / totals.$1 * 100).round()} %';
+  int? percentValue((int, int) totals) {
+    if (totals.$1 == 0) return null;
+    return (totals.$2 / totals.$1 * 100).round();
   }
 
   @override
   Widget build(BuildContext context) {
     final global = totalsFor(questions);
+    final globalPercent = percentValue(global);
     final difficult = questions.where((q) {
       final s = stats.forQuestion(q.id);
       return s.errors >= 2 || (s.attempts >= 2 && s.successRate < 0.6);
@@ -35,54 +36,101 @@ class ProgressScreen extends StatelessWidget {
       ..sort((a, b) {
         final sa = stats.forQuestion(a.id);
         final sb = stats.forQuestion(b.id);
-        return sb.errors.compareTo(sa.errors);
+        final rateCompare = sa.successRate.compareTo(sb.successRate);
+        return rateCompare != 0 ? rateCompare : sb.errors.compareTo(sa.errors);
       });
+
+    final rows = [
+      ('CFD', questions.where((q) => q.category == AnswerCategory.cfd)),
+      ('CFI', questions.where((q) => q.category == AnswerCategory.cfi)),
+      ('Cartons jaunes', questions.where((q) => q.category == AnswerCategory.cj)),
+      ('Cartons rouges', questions.where((q) => q.category == AnswerCategory.cr)),
+    ];
 
     return Scaffold(
       appBar: AppBar(title: const Text('Progression')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          _ScoreCard(label: 'Score global', value: percent(global)),
-          const SizedBox(height: 12),
-          _ScoreCard(
-            label: 'CFD',
-            value: percent(totalsFor(
-              questions.where((q) => q.category == AnswerCategory.cfd),
-            )),
-          ),
-          _ScoreCard(
-            label: 'CFI',
-            value: percent(totalsFor(
-              questions.where((q) => q.category == AnswerCategory.cfi),
-            )),
-          ),
-          _ScoreCard(
-            label: 'Cartons jaunes',
-            value: percent(totalsFor(
-              questions.where((q) => q.category == AnswerCategory.cj),
-            )),
-          ),
-          _ScoreCard(
-            label: 'Cartons rouges',
-            value: percent(totalsFor(
-              questions.where((q) => q.category == AnswerCategory.cr),
-            )),
-          ),
-          const SizedBox(height: 28),
-          Text('À retravailler', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
-          if (difficult.isEmpty)
-            const Card(
-              child: ListTile(
-                leading: Icon(Icons.check_circle_outline),
-                title: Text('Aucune question difficile détectée pour le moment.'),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 82,
+                        height: 82,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              value: globalPercent == null ? 0 : globalPercent / 100,
+                              strokeWidth: 8,
+                              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            ),
+                            Text(
+                              globalPercent == null ? '—' : '$globalPercent%',
+                              style: const TextStyle(fontWeight: FontWeight.w900),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 18),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Score global',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text('${global.$1} réponse(s) enregistrée(s)'),
+                            Text('${difficult.length} question(s) à retravailler'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            )
-          else
-            for (final q in difficult)
-              _DifficultTile(question: q, stats: stats.forQuestion(q.id)),
-        ],
+              const SizedBox(height: 20),
+              Text(
+                'Par catégorie',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              for (final row in rows) ...[
+                _ScoreCard(label: row.$1, totals: totalsFor(row.$2)),
+                const SizedBox(height: 10),
+              ],
+              const SizedBox(height: 18),
+              Text(
+                'À retravailler',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              if (difficult.isEmpty)
+                const Card(
+                  child: ListTile(
+                    leading: Icon(Icons.check_circle_outline_rounded),
+                    title: Text('Aucune question difficile détectée pour le moment.'),
+                    subtitle: Text('Les motifs ratés plusieurs fois apparaîtront ici.'),
+                  ),
+                )
+              else
+                for (final q in difficult) ...[
+                  _DifficultTile(question: q, stats: stats.forQuestion(q.id)),
+                  const SizedBox(height: 10),
+                ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -90,35 +138,64 @@ class ProgressScreen extends StatelessWidget {
 
 class _ScoreCard extends StatelessWidget {
   final String label;
-  final String value;
-  const _ScoreCard({required this.label, required this.value});
+  final (int, int) totals;
+
+  const _ScoreCard({required this.label, required this.totals});
 
   @override
-  Widget build(BuildContext context) => Card(
-        child: ListTile(
-          title: Text(label),
-          trailing: Text(
-            value,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
+  Widget build(BuildContext context) {
+    final percent = totals.$1 == 0 ? null : (totals.$2 / totals.$1 * 100).round();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 3),
+                  Text('${totals.$1} tentative(s)'),
+                ],
+              ),
+            ),
+            Text(
+              percent == null ? '—' : '$percent %',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _DifficultTile extends StatelessWidget {
   final Question question;
   final QuestionStats stats;
+
   const _DifficultTile({required this.question, required this.stats});
 
   @override
-  Widget build(BuildContext context) => Card(
-        child: ListTile(
-          title: Text(question.motif),
-          subtitle: Text(
-            '${stats.errors} erreur(s) sur ${stats.attempts} tentative(s) · ${question.shortAnswer}',
-          ),
+  Widget build(BuildContext context) {
+    final percent = stats.attempts == 0 ? 0 : (stats.successRate * 100).round();
+    return Card(
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        title: Text(question.motif),
+        subtitle: Text(
+          '${stats.errors} erreur(s) sur ${stats.attempts} tentative(s) · $percent % de réussite',
         ),
-      );
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(99),
+          ),
+          child: Text(question.shortAnswer, style: const TextStyle(fontWeight: FontWeight.w900)),
+        ),
+      ),
+    );
+  }
 }

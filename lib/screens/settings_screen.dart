@@ -39,79 +39,140 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Paramètres')),
-      body: ListView(
-        children: [
-          ListTile(
-            title: const Text('Nombre de questions'),
-            trailing: DropdownButton<int>(
-              value: _settings.questionCount ?? -1,
-              items: const [
-                DropdownMenuItem(value: 10, child: Text('10')),
-                DropdownMenuItem(value: 20, child: Text('20')),
-                DropdownMenuItem(value: 39, child: Text('39')),
-                DropdownMenuItem(value: -1, child: Text('Illimité')),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                _save(
-                  value == -1
-                      ? _settings.copyWith(unlimited: true)
-                      : _settings.copyWith(questionCount: value),
-                );
-              },
-            ),
-          ),
-          SwitchListTile(
-            title: const Text('Ordre aléatoire'),
-            value: _settings.randomOrder,
-            onChanged: (v) => _save(_settings.copyWith(randomOrder: v)),
-          ),
-          SwitchListTile(
-            title: const Text('Afficher les explications'),
-            value: _settings.explanations,
-            onChanged: (v) => _save(_settings.copyWith(explanations: v)),
-          ),
-          SwitchListTile(
-            title: const Text('Forcer le mode sombre'),
-            subtitle: const Text('Désactivé : suit le thème du téléphone.'),
-            value: _settings.forceDarkMode,
-            onChanged: (v) => _save(_settings.copyWith(forceDarkMode: v)),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.delete_outline),
-            title: const Text('Réinitialiser les statistiques'),
-            onTap: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              final ok = await showDialog<bool>(
-                context: context,
-                builder: (dialogContext) => AlertDialog(
-                  title: const Text('Réinitialiser ?'),
-                  content: const Text(
-                    'Toutes les tentatives et les erreurs enregistrées seront supprimées.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext, false),
-                      child: const Text('Annuler'),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            children: [
+              Text(
+                'Révision',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      title: const Text('Nombre de questions'),
+                      subtitle: const Text('Utilisé pour les modes de révision classiques.'),
+                      trailing: DropdownButton<int>(
+                        value: _settings.questionCount ?? -1,
+                        underline: const SizedBox.shrink(),
+                        items: const [
+                          DropdownMenuItem(value: 10, child: Text('10')),
+                          DropdownMenuItem(value: 20, child: Text('20')),
+                          DropdownMenuItem(value: 39, child: Text('39')),
+                          DropdownMenuItem(value: -1, child: Text('Illimité')),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          _save(
+                            value == -1
+                                ? _settings.copyWith(unlimited: true)
+                                : _settings.copyWith(questionCount: value),
+                          );
+                        },
+                      ),
                     ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(dialogContext, true),
-                      child: const Text('Réinitialiser'),
+                    const Divider(height: 1),
+                    SwitchListTile(
+                      title: const Text('Ordre aléatoire'),
+                      subtitle: const Text('Mélange les motifs à chaque session.'),
+                      value: _settings.randomOrder,
+                      onChanged: (v) => _save(_settings.copyWith(randomOrder: v)),
+                    ),
+                    const Divider(height: 1),
+                    SwitchListTile(
+                      title: const Text('Afficher les explications'),
+                      subtitle: const Text('Montre une explication après chaque réponse.'),
+                      value: _settings.explanations,
+                      onChanged: (v) => _save(_settings.copyWith(explanations: v)),
                     ),
                   ],
                 ),
-              );
-              if (ok == true) {
-                await widget.stats.reset();
-                if (!mounted) return;
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('Statistiques réinitialisées.')),
-                );
-              }
-            },
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Apparence',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: SegmentedButton<AppThemePreference>(
+                    segments: const [
+                      ButtonSegment(
+                        value: AppThemePreference.system,
+                        icon: Icon(Icons.brightness_auto_rounded),
+                        label: Text('Système'),
+                      ),
+                      ButtonSegment(
+                        value: AppThemePreference.light,
+                        icon: Icon(Icons.light_mode_rounded),
+                        label: Text('Clair'),
+                      ),
+                      ButtonSegment(
+                        value: AppThemePreference.dark,
+                        icon: Icon(Icons.dark_mode_rounded),
+                        label: Text('Sombre'),
+                      ),
+                    ],
+                    selected: {_settings.themePreference},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (selection) {
+                      if (selection.isEmpty) return;
+                      _save(_settings.copyWith(themePreference: selection.first));
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Données locales',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.delete_outline_rounded),
+                  title: const Text('Réinitialiser les statistiques'),
+                  subtitle: const Text('Supprime les tentatives, scores et erreurs enregistrés sur cet appareil.'),
+                  onTap: () async {
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Réinitialiser ?'),
+                        content: const Text(
+                          'Toutes les tentatives et les erreurs enregistrées seront supprimées.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Annuler'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Réinitialiser'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (ok == true) {
+                      await widget.stats.reset();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Statistiques réinitialisées.')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -1,7 +1,7 @@
 name: revision_arbitrage
-description: Application Android hors ligne de révision pour arbitre de football.
+description: Application hors ligne de révision de la Loi 12 pour arbitres de football.
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -10,7 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   shared_preferences: ^2.3.2
-
   cupertino_icons: ^1.0.8
 
 dev_dependencies:

@@ -2,9 +2,12 @@
 .packages
 .pub/
 build/
-android/.gradle/
-android/local.properties
+android/
 .idea/
 .vscode/
 *.iml
 .DS_Store
+
+# Generated locally/CI by tool/generate_branding.py
+assets/branding/android/
+web/icons/

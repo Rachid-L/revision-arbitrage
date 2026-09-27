@@ -45,6 +45,7 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   void _appendBatch() {
+    if (_pool.isEmpty) return;
     final count = _unlimited ? _pool.length : widget.settings.questionCount;
     _questions.addAll(
       _engine.buildSession(
@@ -83,6 +84,7 @@ class _QuizScreenState extends State<QuizScreen> {
       }
       return;
     }
+
     setState(() {
       _index++;
       _selected = null;
@@ -91,20 +93,31 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Future<void> _showSummary() async {
+    final score = (_sessionCorrect / _questions.length * 100).round();
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(score >= 80 ? Icons.emoji_events_rounded : Icons.flag_rounded),
         title: const Text('Session terminée'),
-        content: Text(
-          '$_sessionCorrect / ${_questions.length} bonnes réponses '
-          '(${(_sessionCorrect / _questions.length * 100).round()} %).',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$_sessionCorrect / ${_questions.length}',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text('$score % de réussite'),
+          ],
         ),
         actions: [
           FilledButton(
             onPressed: () {
+              Navigator.of(dialogContext).pop();
               Navigator.of(context).pop();
-              Navigator.of(this.context).pop();
             },
             child: const Text('Retour à l’accueil'),
           ),
@@ -118,12 +131,15 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_questions.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: Text(widget.title)),
-        body: const Center(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Text(
-              'Aucune question disponible dans ce mode pour le moment.',
-              textAlign: TextAlign.center,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Aucune question disponible dans ce mode pour le moment. Fais quelques erreurs en révision, puis elles apparaîtront ici.',
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
         ),
@@ -134,93 +150,159 @@ class _QuizScreenState extends State<QuizScreen> {
     final options = q.type == QuestionType.restart
         ? [AnswerCategory.cfd, AnswerCategory.cfi]
         : [AnswerCategory.cj, AnswerCategory.cr];
-
-    String label(AnswerCategory answer) => switch (answer) {
-          AnswerCategory.cfd => 'Coup franc direct',
-          AnswerCategory.cfi => 'Coup franc indirect',
-          AnswerCategory.cj => 'Carton jaune',
-          AnswerCategory.cr => 'Carton rouge',
-        };
+    final correct = _selected == q.answer;
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    _unlimited
-                        ? 'Question ${_index + 1} / ∞'
-                        : 'Question ${_index + 1} / ${_questions.length}',
-                    style: Theme.of(context).textTheme.titleMedium,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      _unlimited
+                          ? 'Question ${_index + 1} / ∞'
+                          : 'Question ${_index + 1} / ${_questions.length}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const Spacer(),
+                    Text(q.season, style: Theme.of(context).textTheme.labelLarge),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                LinearProgressIndicator(
+                  borderRadius: BorderRadius.circular(99),
+                  minHeight: 7,
+                  value: _unlimited ? null : (_index + 1) / _questions.length,
+                ),
+                const SizedBox(height: 30),
+                Align(
+                  alignment: Alignment.center,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      q.typeLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
-                  const Spacer(),
-                  Text(q.season),
+                ),
+                const SizedBox(height: 14),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 30),
+                    child: Text(
+                      q.motif,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            height: 1.25,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                for (final option in options) ...[
+                  AnswerButton(
+                    label: option.label,
+                    onPressed: _answered ? null : () => _answer(option),
+                    selected: _selected == option,
+                    isCorrect: _answered ? option == q.answer : null,
+                    revealAsCorrect: _answered && option == q.answer,
+                  ),
+                  const SizedBox(height: 12),
                 ],
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: _unlimited ? null : (_index + 1) / _questions.length,
-              ),
-              const Spacer(),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    q.motif,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              for (final option in options) ...[
-                AnswerButton(
-                  label: label(option),
-                  onPressed: _answered ? null : () => _answer(option),
-                  selected: _selected == option,
-                  isCorrect: _answered ? option == q.answer : null,
-                  revealAsCorrect: _answered && option == q.answer,
-                ),
-                const SizedBox(height: 12),
-              ],
-              if (_answered) ...[
-                const SizedBox(height: 4),
-                Text(
-                  _selected == q.answer
-                      ? 'Correct'
-                      : 'Incorrect — bonne réponse : ${q.answerLabel}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: _selected == q.answer
-                            ? Colors.green.shade700
-                            : Theme.of(context).colorScheme.error,
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                if (widget.settings.explanations && q.explanation.isNotEmpty) ...[
+                if (_answered) ...[
                   const SizedBox(height: 8),
-                  Text(q.explanation),
-                ],
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: _next,
-                  icon: const Icon(Icons.arrow_forward),
-                  label: Text(
-                    !_unlimited && _index == _questions.length - 1
-                        ? 'Voir le résultat'
-                        : 'Suivant',
+                  _CorrectionCard(
+                    question: q,
+                    correct: correct,
+                    showExplanation: widget.settings.explanations,
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _next,
+                    icon: const Icon(Icons.arrow_forward_rounded),
+                    label: Text(
+                      !_unlimited && _index == _questions.length - 1
+                          ? 'Voir mon résultat'
+                          : 'Question suivante',
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CorrectionCard extends StatelessWidget {
+  final Question question;
+  final bool correct;
+  final bool showExplanation;
+
+  const _CorrectionCard({
+    required this.question,
+    required this.correct,
+    required this.showExplanation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = correct ? Colors.green.shade700 : scheme.error;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: correct
+            ? Colors.green.withValues(alpha: .08)
+            : scheme.errorContainer.withValues(alpha: .55),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: .35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(correct ? Icons.check_circle_rounded : Icons.cancel_rounded, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  correct ? 'Correct' : 'À revoir · ${question.answerLabel}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ),
+            ],
+          ),
+          if (showExplanation && question.explanation.isNotEmpty) ...[
+            const SizedBox(height: 9),
+            Text(question.explanation),
+          ],
+          if (question.source != null && question.source!.isNotEmpty) ...[
+            const SizedBox(height: 9),
+            Text(
+              'Référence : ${question.source}',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ],
+        ],
       ),
     );
   }

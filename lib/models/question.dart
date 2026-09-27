@@ -48,11 +48,25 @@ class Question {
   }
 
   String get shortAnswer => answer.name.toUpperCase();
+  String get typeLabel => type == QuestionType.restart
+      ? 'Reprise du jeu'
+      : 'Sanction disciplinaire';
 
-  String get answerLabel => switch (answer) {
+  String get answerLabel => answer.label;
+}
+
+extension AnswerCategoryLabel on AnswerCategory {
+  String get label => switch (this) {
         AnswerCategory.cfd => 'Coup franc direct',
         AnswerCategory.cfi => 'Coup franc indirect',
         AnswerCategory.cj => 'Carton jaune',
         AnswerCategory.cr => 'Carton rouge',
+      };
+
+  String get shortLabel => switch (this) {
+        AnswerCategory.cfd => 'CFD',
+        AnswerCategory.cfi => 'CFI',
+        AnswerCategory.cj => 'CJ',
+        AnswerCategory.cr => 'CR',
       };
 }

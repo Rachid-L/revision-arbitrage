@@ -40,28 +40,28 @@ class _ExamScreenState extends State<ExamScreen> {
   }
 
   Future<void> _finish() async {
-    if (_answers.length < _questions.length) {
-      final continueAnyway = await showDialog<bool>(
+    final unanswered = _questions.length - _answers.length;
+    if (unanswered > 0) {
+      final finishAnyway = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Questions non répondues'),
           content: Text(
-            '${_questions.length - _answers.length} question(s) sont encore sans réponse. '
-            'Les terminer avant de rendre l’examen ?',
+            '$unanswered question(s) sont encore sans réponse. Tu veux rendre l’examen quand même ?',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Rendre quand même'),
+              child: const Text('Continuer l’examen'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Continuer'),
+              child: const Text('Rendre'),
             ),
           ],
         ),
       );
-      if (continueAnyway != false) return;
+      if (finishAnyway != true) return;
     }
 
     final results = <int, bool>{};
@@ -94,78 +94,109 @@ class _ExamScreenState extends State<ExamScreen> {
         : [AnswerCategory.cj, AnswerCategory.cr];
     final selected = _answers[q.id];
 
-    String label(AnswerCategory a) => switch (a) {
-          AnswerCategory.cfd => 'Coup franc direct',
-          AnswerCategory.cfi => 'Coup franc indirect',
-          AnswerCategory.cj => 'Carton jaune',
-          AnswerCategory.cr => 'Carton rouge',
-        };
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Examen — 20 questions')),
+      appBar: AppBar(title: const Text('Examen · 20 questions')),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Question ${_index + 1} / ${_questions.length}'),
-              const SizedBox(height: 8),
-              LinearProgressIndicator(value: (_index + 1) / _questions.length),
-              const Spacer(),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    q.motif,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              for (final option in options) ...[
-                SizedBox(
-                  height: 58,
-                  child: OutlinedButton(
-                    onPressed: () => _select(option),
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: selected == option
-                          ? Theme.of(context).colorScheme.primaryContainer
-                          : null,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Question ${_index + 1} / ${_questions.length}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                     ),
-                    child: Text(label(option)),
+                    const Spacer(),
+                    Text('${_answers.length} répondues'),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                LinearProgressIndicator(
+                  value: (_index + 1) / _questions.length,
+                  minHeight: 7,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                const SizedBox(height: 30),
+                Align(
+                  alignment: Alignment.center,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(q.typeLabel, style: const TextStyle(fontWeight: FontWeight.w800)),
                   ),
                 ),
-                const SizedBox(height: 12),
-              ],
-              Row(
-                children: [
-                  Expanded(
+                const SizedBox(height: 14),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 30),
+                    child: Text(
+                      q.motif,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            height: 1.25,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                for (final option in options) ...[
+                  SizedBox(
+                    height: 62,
                     child: OutlinedButton(
-                      onPressed: _index == 0 ? null : () => _go(-1),
-                      child: const Text('Précédent'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _index == _questions.length - 1
-                          ? _finish
-                          : () => _go(1),
-                      child: Text(
-                        _index == _questions.length - 1 ? 'Terminer' : 'Suivant',
+                      onPressed: () => _select(option),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: selected == option
+                            ? Theme.of(context).colorScheme.primaryContainer
+                            : null,
+                        side: selected == option
+                            ? BorderSide(color: Theme.of(context).colorScheme.primary, width: 2)
+                            : null,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(option.label),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
                 ],
-              ),
-            ],
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _index == 0 ? null : () => _go(-1),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        label: const Text('Précédent'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _index == _questions.length - 1 ? _finish : () => _go(1),
+                        icon: Icon(
+                          _index == _questions.length - 1
+                              ? Icons.flag_rounded
+                              : Icons.arrow_forward_rounded,
+                        ),
+                        label: Text(
+                          _index == _questions.length - 1 ? 'Terminer' : 'Suivant',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -190,48 +221,77 @@ class ExamResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final wrong = questions.where((q) => answers[q.id] != q.answer).toList();
+    final score = (correct / total * 100).round();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Résultat de l’examen')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Text(
-            '$correct / $total',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          Text(
-            '${(correct / total * 100).round()} %',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 24),
-          if (wrong.isEmpty)
-            const Card(
-              child: ListTile(
-                leading: Icon(Icons.emoji_events),
-                title: Text('Sans faute !'),
-              ),
-            )
-          else ...[
-            Text('À revoir', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            for (final q in wrong)
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            children: [
               Card(
-                child: ListTile(
-                  title: Text(q.motif),
-                  subtitle: Text('Bonne réponse : ${q.answerLabel}'),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      Icon(
+                        score >= 80 ? Icons.emoji_events_rounded : Icons.flag_rounded,
+                        size: 46,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '$correct / $total',
+                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      Text(
+                        '$score % de réussite',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-          ],
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Retour à l’accueil'),
+              const SizedBox(height: 24),
+              Text(
+                wrong.isEmpty ? 'Parfait' : 'À revoir (${wrong.length})',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              if (wrong.isEmpty)
+                const Card(
+                  child: ListTile(
+                    leading: Icon(Icons.check_circle_outline_rounded),
+                    title: Text('Sans faute !'),
+                    subtitle: Text('Tu as répondu juste aux 20 questions.'),
+                  ),
+                )
+              else
+                for (final q in wrong)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Card(
+                      child: ListTile(
+                        title: Text(q.motif),
+                        subtitle: Text('Bonne réponse : ${q.answerLabel}'),
+                        trailing: Text(
+                          q.shortAnswer,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                    ),
+                  ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Retour à l’accueil'),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
