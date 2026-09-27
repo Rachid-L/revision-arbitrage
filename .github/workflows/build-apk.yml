@@ -1,0 +1,55 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android project
+        run: |
+          chmod +x bootstrap_android.sh
+          ./bootstrap_android.sh
+      - name: Validate question bank
+        run: python tool/validate_questions.py
+      - name: Flutter analyze
+        run: flutter analyze
+      - name: Flutter tests
+        run: flutter test
+      - name: Build release APK
+        run: flutter build apk --release
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk revision-arbitrage.apk
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: revision-arbitrage-apk
+          path: revision-arbitrage.apk
+          if-no-files-found: error
+      - name: Publish latest APK release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: latest
+          name: Révision Arbitrage — dernière APK
+          artifacts: revision-arbitrage.apk
+          allowUpdates: true
+          replacesArtifacts: true
+          makeLatest: true
