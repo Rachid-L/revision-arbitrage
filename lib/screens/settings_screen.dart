@@ -161,11 +161,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                     if (ok == true) {
                       await widget.stats.reset();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Statistiques réinitialisées.')),
-                        );
-                      }
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(content: Text('Statistiques réinitialisées.')),
+                      );
                     }
                   },
                 ),
